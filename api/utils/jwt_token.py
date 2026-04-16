@@ -5,9 +5,9 @@ from sqlalchemy import select, update, delete
 
 import jwt
 
-from api.db.models import User
+from api.db.models import User, RefreshToken
 from config import settings
-from models import RefreshToken
+
 
 # Объявление констант
 SECRET_KEY = settings.JWT_SECRET_KEY
