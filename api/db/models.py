@@ -96,6 +96,19 @@ class Song(Base):
     # Связь
     performer: Mapped[Performer] = relationship("Performer", back_populates="songs")
 
+# Таблица для хранения refresh токенов
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(500), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")
 
 
 
