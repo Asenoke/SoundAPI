@@ -5,7 +5,7 @@ from api.db.models import Base
 from config import settings
 
 # Создание асинхронного движка и асинхронной фабрики сессий
-async_engine = create_async_engine(url=settings.DATABASE_URL, echo=True)
+async_engine = create_async_engine(url=settings.DB_URL, echo=True)
 
 async_session = async_sessionmaker(
     bind=async_engine,
@@ -26,6 +26,9 @@ async def get_session():
     try:
         async with async_session() as session:
             yield session
-    except Exception as e:
-        print(e)
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
