@@ -1,11 +1,11 @@
-import datetime
+from datetime import datetime
 import enum
 
 from sqlalchemy import BigInteger, String, Enum, DateTime, ForeignKey, Numeric, Boolean, Integer
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
+from sqlalchemy.orm import mapped_column, Mapped, relationship, declarative_base
 
 # базовый класс для таблиц в бд
-Base = DeclarativeBase()
+Base = declarative_base()
 
 # класс для хранения вариаций подписок
 class Subscription(enum.Enum):
@@ -38,6 +38,12 @@ class User(Base):
     # связи
     payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="user", uselist=False)
     buys: Mapped[list["Buy"]] = relationship("Buy", back_populates="user")
+
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
 
 # Данные карт пользователей для проведения оплаты подписки в бд
