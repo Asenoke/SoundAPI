@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy import select
 from datetime import datetime
 
-from api.auth.models import UserRegister, UserLogin, UserEdit
+from api.auth.models import UserRegister, UserLogin
 from api.db import sessionDep
 from api.db.models import User, RefreshToken
 from api.dependencies.current_user import get_current_user
@@ -48,8 +48,8 @@ async def registration(
         firstname=user.firstname,
         lastname=user.lastname,
         email=user.email,
-        password=hash_password(user.password),
         phone_number=user.phone_number,
+        password=hash_password(user.password),
         age=user.age,
     )
 
@@ -128,7 +128,6 @@ async def login(
     # Сохраняем refresh token в БД
     await save_refresh_token(session, user.id, refresh_token)
 
-    avatar_url = f"/static/avatars/{user.avatar}" if user.avatar else None
 
     return {
         "status": "success",
@@ -140,7 +139,7 @@ async def login(
             "email": user.email,
             "role": user.role.value,
             "avatar_path": user.avatar,
-            "avatar_url": avatar_url
+            "avatar_url": "S3"
         },
         "access_token": access_token,
         "refresh_token": refresh_token,

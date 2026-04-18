@@ -22,7 +22,7 @@ class Role(enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     firstname: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     lastname: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)

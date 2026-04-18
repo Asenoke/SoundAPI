@@ -142,14 +142,28 @@ async def cleanup_expired_tokens(db: AsyncSession):
     return result.rowcount
 
 
-# ОБНОВЛЕНИЕ access token через refresh token
+# обновление access token через refresh token
 async def refresh_access_token(db: AsyncSession, refresh_token: str) -> Optional[str]:
+    from api.db.models import User  # Локальный импорт для избежания циклических зависимостей
+
     user_id = await validate_refresh_token(db, refresh_token)
     if not user_id:
         return None
 
-    # Создаём новый access token
-    new_access_token = create_access_token(data={"sub": str(user_id)})
+    # Получаем пользователя из БД для email и role
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        return None
+
+    # Создаём новый access token с полными данными
+    new_access_token = create_access_token(data={
+        "sub": str(user_id),
+        "email": user.email,
+        "role": user.role.value
+    })
+
     return new_access_token
 
 
