@@ -4,7 +4,8 @@ import uvicorn
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-
+from api.db.db import create_db
+from api.auth.routers import  router as auth_router
 
 
 @asynccontextmanager
@@ -15,9 +16,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, title="Sound API", description="API для музыкального сервиса 'Sound' ")
 
 
+app.include_router(auth_router)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["127.0.0.1"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -12,14 +12,15 @@ class UserRegister(BaseModel):
     age: int = Field(..., title="Age", ge=1)
 
     @field_validator("password")
-    def password_validator(cls, value: str):
+    def password_validator(cls, value: Optional[str]):
+        if value is None:
+            return value
+
         special_chars = ["/", "!", "@", "#", "$", "%", "^", "&", "*", "+", "-", "?"]
 
-        # Проверяем, есть ли хотя бы один спецсимвол
         if not any(char in value for char in special_chars):
             raise ValueError("Пароль должен содержать хотя бы один специальный символ: /!@#$%^&*+-?")
 
-        # Дополнительные проверки (опционально)
         if not any(c.isupper() for c in value):
             raise ValueError("Пароль должен содержать хотя бы одну заглавную букву")
 
@@ -32,9 +33,20 @@ class UserRegister(BaseModel):
         return value
 
     @field_validator('phone_number')
-    def validate_phone(cls, v: str):
+    def validate_phone(cls, v: Optional[str]):
+        if v is None:
+            return v
+
+        # Очищаем от пробелов и тире
+        v = v.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+
         if not v.isdigit():
             raise ValueError('Номер телефона должен содержать только цифры')
+
+        if len(v) < 10 or len(v) > 12:
+            raise ValueError('Номер телефона должен содержать 10-12 цифр')
+
+        return v
 
 
 class UserLogin(BaseModel):
@@ -42,11 +54,48 @@ class UserLogin(BaseModel):
     password: str = Field(..., title="Password")
 
 
-class UserEdit(UserRegister):
-    firstname: Optional[str] = Field(title="First Name")
-    lastname: Optional[str] = Field(title="Last Name")
-    phone_number: Optional[str] = Field(title="Phone Number")
-    email: Optional[EmailStr] = Field(title="Email")
-    password: Optional[str] = Field(title="Password")
+class UserEdit(BaseModel):
+    firstname: Optional[str] = Field(None, title="First Name", min_length=1, max_length=100)
+    lastname: Optional[str] = Field(None, title="Last Name", min_length=1, max_length=100)
+    phone_number: Optional[str] = Field(None, title="Phone Number")
+    email: Optional[EmailStr] = Field(None, title="Email")
+    password: Optional[str] = Field(None, title="Password", min_length=8)
+    age: Optional[int] = Field(None, title="Age", ge=1, le=150)
 
+    @field_validator("password")
+    def password_validator(cls, value: Optional[str]):
+        if value is None:
+            return value
+
+        special_chars = ["/", "!", "@", "#", "$", "%", "^", "&", "*", "+", "-", "?"]
+
+        if not any(char in value for char in special_chars):
+            raise ValueError("Пароль должен содержать хотя бы один специальный символ: /!@#$%^&*+-?")
+
+        if not any(c.isupper() for c in value):
+            raise ValueError("Пароль должен содержать хотя бы одну заглавную букву")
+
+        if not any(c.islower() for c in value):
+            raise ValueError("Пароль должен содержать хотя бы одну строчную букву")
+
+        if not any(c.isdigit() for c in value):
+            raise ValueError("Пароль должен содержать хотя бы одну цифру")
+
+        return value
+
+    @field_validator('phone_number')
+    def validate_phone(cls, v: Optional[str]):
+        if v is None:
+            return v
+
+        # Очищаем от пробелов и тире
+        v = v.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+
+        if not v.isdigit():
+            raise ValueError('Номер телефона должен содержать только цифры')
+
+        if len(v) < 10 or len(v) > 12:
+            raise ValueError('Номер телефона должен содержать 10-12 цифр')
+
+        return v
 
