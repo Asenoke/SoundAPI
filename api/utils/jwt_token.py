@@ -76,6 +76,17 @@ def verify_refresh_token(token: str):
 
 
 async def save_refresh_token(session: SessionDep, user_id: int, refresh_token: str):
+    # Отзываем все старые активные токены пользователя
+    await session.execute(
+        update(RefreshToken)
+        .where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked == False
+        )
+        .values(revoked=True, revoked_at=datetime.utcnow())
+    )
+
+    # Создаём новый токен
     new_refresh = RefreshToken(
         user_id=user_id,
         token=refresh_token,

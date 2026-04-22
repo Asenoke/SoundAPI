@@ -39,6 +39,8 @@ class User(Base):
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
     playlists: Mapped[list["Playlist"]] = relationship("Playlist", back_populates="user", cascade="all, delete-orphan")
+    buys: Mapped[list["Buy"]] = relationship("Buy", back_populates="user", cascade="all, delete-orphan")
+    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
 
 
 # Таблица исполнителей
@@ -121,7 +123,7 @@ class RefreshToken(Base):
     user: Mapped[User] = relationship("User", back_populates="refresh_tokens")
 
 
-# Таблица для всех покупок
+# Таблица для всех покупок подписок
 class Buy(Base):
     __tablename__ = "buys"
 
@@ -136,7 +138,7 @@ class Buy(Base):
     user: Mapped["User"] = relationship("User", back_populates="buys")
 
 
-
+# Таблица платежей
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -151,4 +153,3 @@ class Payment(Base):
 
     # связи
     user: Mapped["User"] = relationship("User", back_populates="payments")
-    buy: Mapped["Buy"] = relationship("Buy", back_populates="payment")

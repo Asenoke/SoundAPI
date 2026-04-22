@@ -26,47 +26,63 @@ class S3Storage:
 
     # Получение расширения файла
     def _get_extension(self, filename: str) -> str:
-
         if not filename:
             return 'jpg'
         ext = filename.split('.')[-1].lower()
-        if ext in ['jpg', 'jpeg', 'png']:
+        if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
             return 'jpg' if ext == 'jpeg' else ext
         return 'jpg'
 
-    # Загрузка аватара пользователя (имя = user_id.jpg или user_id.png)
-    async def upload_user_avatar(self, file: UploadFile, user_id: int) -> str:
-        extension = self._get_extension(file.filename)
+    # Загрузка аватара пользователя
+    async def upload_user_avatar(self, file: UploadFile, user_id: int, content: bytes = None) -> str:
+        # Определяем расширение
+        if file.filename:
+            extension = file.filename.split('.')[-1].lower()
+            if extension == 'jpeg':
+                extension = 'jpg'
+        else:
+            extension = 'jpg'
+
         file_path = f"avatars/{user_id}.{extension}"
 
-        content = await file.read()
+        # Если content не передан, читаем файл
+        if content is None:
+            content = await file.read()
+
+        # Проверяем что content не пустой
+        if len(content) == 0:
+            raise ValueError("Файл пустой")
+
+        # Определяем Content-Type
+        content_type = file.content_type or 'image/jpeg'
 
         async with await self.get_client() as client:
             await client.put_object(
                 Bucket=self.bucket_name,
                 Key=file_path,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=content_type
             )
 
         return file_path
 
-    # Загрузка обложки песни (имя = song_id.jpg или song_id.png)
+    # Загрузка обложки песни
     async def upload_song_cover(self, file: UploadFile, song_name: str, song_id: int) -> str:
         extension = self._get_extension(file.filename)
-        # Очищаем имя песни для URL (только для читаемости)
+        # Очищаем имя песни для URL
         clean_name = "".join(c for c in song_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        clean_name = clean_name.replace(' ', '_')[:50]  # Ограничиваем длину
+        clean_name = clean_name.replace(' ', '_')[:50]
         file_path = f"covers/{song_id}_{clean_name}.{extension}"
 
         content = await file.read()
+        content_type = file.content_type or 'image/jpeg'
 
         async with await self.get_client() as client:
             await client.put_object(
                 Bucket=self.bucket_name,
                 Key=file_path,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=content_type
             )
 
         return file_path
@@ -90,19 +106,20 @@ class S3Storage:
 
         return file_path
 
-    # загрузка фото
+    # Загрузка фото исполнителя
     async def upload_performer_photo(self, file: UploadFile, performer_id: int) -> str:
         extension = self._get_extension(file.filename)
         file_path = f"performers/{performer_id}.{extension}"
 
         content = await file.read()
+        content_type = file.content_type or 'image/jpeg'
 
         async with await self.get_client() as client:
             await client.put_object(
                 Bucket=self.bucket_name,
                 Key=file_path,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=content_type
             )
 
         return file_path
@@ -115,32 +132,67 @@ class S3Storage:
         file_path = f"playlists/{playlist_id}_{clean_name}.{extension}"
 
         content = await file.read()
+        content_type = file.content_type or 'image/jpeg'
 
         async with await self.get_client() as client:
             await client.put_object(
                 Bucket=self.bucket_name,
                 Key=file_path,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=content_type
             )
 
         return file_path
 
     # Получение публичного URL файла
     async def get_file_url(self, file_path: str) -> str:
+        if not file_path:
+            return None
         return f"{self.endpoint_url}/{self.bucket_name}/{file_path}"
 
-    # Удаление файла из S3
-    async def delete_file(self, file_path: str) -> bool:
+    # Проверка существования файла
+    async def file_exists(self, file_path: str) -> bool:
+        if not file_path:
+            return False
+
         try:
             async with await self.get_client() as client:
-                await client.delete_object(
+                await client.head_object(
                     Bucket=self.bucket_name,
                     Key=file_path
                 )
             return True
+        except Exception:
+            return False
+
+    # Удаление файла из S3
+    async def delete_file(self, file_path: str) -> bool:
+        if not file_path:
+            print("No file path provided")
+            return False
+
+        try:
+            async with await self.get_client() as client:
+                # Проверяем существует ли файл
+                try:
+                    await client.head_object(
+                        Bucket=self.bucket_name,
+                        Key=file_path
+                    )
+                except Exception as e:
+                    print(f"File not found in S3: {file_path}, error: {e}")
+                    return True  # Файла нет - считаем что удаление успешно
+
+                # Удаляем файл
+                await client.delete_object(
+                    Bucket=self.bucket_name,
+                    Key=file_path
+                )
+                print(f"Successfully deleted {file_path} from S3")
+                return True
+
         except Exception as e:
-            print(f"Error deleting file: {e}")
+            print(f"Error deleting file {file_path} from S3: {e}")
             return False
 
 
