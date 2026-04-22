@@ -2,7 +2,7 @@ from datetime import datetime
 import enum
 from typing import Optional
 
-from sqlalchemy import BigInteger, String, Enum, DateTime, ForeignKey, Numeric, Boolean, Integer, Table, Column
+from sqlalchemy import BigInteger, String, Enum, DateTime, ForeignKey, Numeric, Boolean, Integer, Table, Column, Text
 from sqlalchemy.orm import mapped_column, Mapped, relationship, declarative_base
 
 Base = declarative_base()
@@ -29,7 +29,7 @@ class User(Base):
     phone_number: Mapped[str] = mapped_column(String(12), nullable=False, unique=True, index=True)
     age: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
-    avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Путь в S3
+    avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     subscription: Mapped[Subscription] = mapped_column(Enum(Subscription), nullable=False, default=Subscription.BASE)
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -48,7 +48,7 @@ class Performer(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     style_music: Mapped[str] = mapped_column(String(200), nullable=False)
-    photo: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Путь к фото в S3
+    photo: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # связи
@@ -82,7 +82,7 @@ class Playlist(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    cover: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # Путь к обложке в S3
+    cover: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -119,3 +119,36 @@ class RefreshToken(Base):
     revoked_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="refresh_tokens")
+
+
+# Таблица для всех покупок
+class Buy(Base):
+    __tablename__ = "buys"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
+    price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    data: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    valid_until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # связи
+    user: Mapped["User"] = relationship("User", back_populates="buys")
+
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
+    card_number: Mapped[str] = mapped_column(String(19), nullable=False)
+    cvv: Mapped[str] = mapped_column(String(3), nullable=False)
+    holders_name: Mapped[str] = mapped_column(Text, nullable=False)
+    valid_until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # связи
+    user: Mapped["User"] = relationship("User", back_populates="payments")
+    buy: Mapped["Buy"] = relationship("Buy", back_populates="payment")
