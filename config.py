@@ -10,10 +10,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
-    BUCKET_NAME: str
+    AWS_S3_BUCKET_NAME: str
     AWS_SECRET_ACCESS_KEY: str
     AWS_ACCESS_KEY_ID: str
-    ENDPOINT_URL: str
+    AWS_S3_ENDPOINT_URL: str
+    AWS_REGION: str
 
     model_config = SettingsConfigDict(env_file='.env')
 
