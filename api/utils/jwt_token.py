@@ -5,6 +5,7 @@ from sqlalchemy import select, update, delete
 
 import jwt
 
+from api.db import SessionDep
 from api.db.models import User, RefreshToken
 from config import settings
 
@@ -74,20 +75,20 @@ def verify_refresh_token(token: str):
 
 
 
-async def save_refresh_token(db: AsyncSession, user_id: int, refresh_token: str):
+async def save_refresh_token(session: SessionDep, user_id: int, refresh_token: str):
     new_refresh = RefreshToken(
         user_id=user_id,
         token=refresh_token,
         expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     )
-    db.add(new_refresh)
-    await db.commit()
-    await db.refresh(new_refresh)
+    session.add(new_refresh)
+    await session.commit()
+    await session.refresh(new_refresh)
     return new_refresh
 
 
 # проверка refresh token в БД
-async def validate_refresh_token(db: AsyncSession, refresh_token: str) -> Optional[int]:
+async def validate_refresh_token(session: SessionDep, refresh_token: str) -> Optional[int]:
     payload = verify_refresh_token(refresh_token)
     if not payload:
         return None
@@ -100,7 +101,7 @@ async def validate_refresh_token(db: AsyncSession, refresh_token: str) -> Option
         RefreshToken.revoked == False,
         RefreshToken.expires_at > datetime.utcnow()
     )
-    result = await db.execute(stmt)
+    result = await session.execute(stmt)
     db_token = result.scalar_one_or_none()
 
     if not db_token:
@@ -110,48 +111,47 @@ async def validate_refresh_token(db: AsyncSession, refresh_token: str) -> Option
 
 
 # отзыв refresh token (при выходе)
-async def revoke_refresh_token(db: AsyncSession, refresh_token: str):
-    await db.execute(
+async def revoke_refresh_token(session: SessionDep, refresh_token: str):
+    await session.execute(
         update(RefreshToken)
         .where(RefreshToken.token == refresh_token)
         .values(revoked=True, revoked_at=datetime.utcnow())
     )
-    await db.commit()
+    await session.commit()
 
 
 # отзыв всех refresh token пользователя (при смене пароля)
-async def revoke_all_user_tokens(db: AsyncSession, user_id: int):
-    await db.execute(
+async def revoke_all_user_tokens(session: SessionDep, user_id: int):
+    await session.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked == False)
         .values(revoked=True, revoked_at=datetime.utcnow())
     )
-    await db.commit()
+    await session.commit()
 
 
 # удаление просроченных токенов (для периодической очистки)
-async def cleanup_expired_tokens(db: AsyncSession):
+async def cleanup_expired_tokens(session: SessionDep):
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
 
-    result = await db.execute(
+    result = await session.execute(
         delete(RefreshToken).where(
             RefreshToken.expires_at < thirty_days_ago
         )
     )
-    await db.commit()
+    await session.commit()
     return result.rowcount
 
 
 # обновление access token через refresh token
-async def refresh_access_token(db: AsyncSession, refresh_token: str) -> Optional[str]:
-    from api.db.models import User  # Локальный импорт для избежания циклических зависимостей
+async def refresh_access_token(session: SessionDep, refresh_token: str) -> Optional[str]:
 
-    user_id = await validate_refresh_token(db, refresh_token)
+    user_id = await validate_refresh_token(session, refresh_token)
     if not user_id:
         return None
 
     # Получаем пользователя из БД для email и role
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -168,14 +168,14 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> Optional
 
 
 # получение текущего пользователя из токена
-async def get_current_user_from_token(db: AsyncSession, token: str):
+async def get_current_user_from_token(session: SessionDep, token: str):
     payload = verify_access_token(token)
     if not payload:
         return None
 
     user_id = int(payload.get("sub"))
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     return user
