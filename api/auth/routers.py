@@ -3,7 +3,7 @@ from sqlalchemy import select
 from datetime import datetime
 
 from api.auth.models import UserRegister, UserLogin
-from api.db import sessionDep
+from api.db import SessionDep
 from api.db.models import User, RefreshToken
 from api.dependencies.current_user import get_current_user
 from api.utils.hash_password import hash_password, verify_password
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 @router.post("/registration", status_code=status.HTTP_201_CREATED)
 async def registration(
         user: UserRegister,
-        session: sessionDep
+        session: SessionDep
 ):
     # Проверяем уникальность email
     existing_email = await session.execute(
@@ -95,7 +95,7 @@ async def registration(
 @router.post("/login", status_code=status.HTTP_200_OK)
 async def login(
         user_data: UserLogin,
-        session: sessionDep
+        session: SessionDep
 ):
     # Ищем пользователя по email
     result = await session.execute(
@@ -149,7 +149,7 @@ async def login(
 
 @router.post("/refresh", status_code=status.HTTP_200_OK)
 async def refresh_token(
-        session: sessionDep,
+        session: SessionDep,
         current_user: User = Depends(get_current_user)
 ):
 
@@ -190,7 +190,7 @@ async def refresh_token(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(
-        session: sessionDep,
+        session: SessionDep,
         current_user: User = Depends(get_current_user)
 
 ):
@@ -203,24 +203,3 @@ async def logout(
         "message": "Вы успешно вышли из системы"
     }
 
-
-@router.get("/profile", status_code=status.HTTP_200_OK)
-async def get_profile(
-        current_user: User = Depends(get_current_user)
-):
-
-    return {
-        "status": "success",
-        "user": {
-            "id": current_user.id,
-            "firstname": current_user.firstname,
-            "lastname": current_user.lastname,
-            "email": current_user.email,
-            "phone_number": current_user.phone_number,
-            "age": current_user.age,
-            "role": current_user.role.value,
-            "subscription": current_user.subscription.value,
-            "avatar_path": current_user.avatar,
-            "avatar_url": "s3"
-        }
-    }
