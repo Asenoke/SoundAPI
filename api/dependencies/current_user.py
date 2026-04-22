@@ -3,14 +3,14 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from starlette import status
 
-from api.db import sessionDep
+from api.db import SessionDep
 from api.db.models import User
 from api.dependencies import security
 from api.utils.jwt_token import verify_access_token
 
 
 async def get_current_user(
-        session: sessionDep,
+        session: SessionDep,
         credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> User:
 
