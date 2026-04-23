@@ -11,7 +11,6 @@ from api.performer.models import PerformerCreate, PerformerUpdate
 router = APIRouter(prefix="/api/performers", tags=["Performers"])
 
 
-# список всех исполнителей (доступно всем)
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_performers(
         session: SessionDep,
@@ -20,10 +19,8 @@ async def get_performers(
         search: Optional[str] = None
 ):
     query = select(Performer)
-
     if search:
         query = query.where(Performer.nickname.ilike(f"%{search}%"))
-
     query = query.offset(skip).limit(limit).order_by(Performer.nickname)
     result = await session.execute(query)
     performers = result.scalars().all()
@@ -39,34 +36,18 @@ async def get_performers(
             "created_at": performer.created_at
         })
 
-    return {
-        "status": "success",
-        "data": performers_list
-    }
+    return {"status": "success", "data": performers_list}
 
 
-# получить исполнителя (доступно всем)
 @router.get("/{performer_id}", status_code=status.HTTP_200_OK)
-async def get_performer(
-        performer_id: int,
-        session: SessionDep
-):
-    result = await session.execute(
-        select(Performer).where(Performer.id == performer_id)
-    )
+async def get_performer(performer_id: int, session: SessionDep):
+    result = await session.execute(select(Performer).where(Performer.id == performer_id))
     performer = result.scalar_one_or_none()
-
     if not performer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Исполнитель не найден"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Исполнитель не найден")
 
-    songs_result = await session.execute(
-        select(Song).where(Song.performer_id == performer_id).order_by(Song.name)
-    )
+    songs_result = await session.execute(select(Song).where(Song.performer_id == performer_id).order_by(Song.name))
     songs = songs_result.scalars().all()
-
     photo_url = await s3_storage.get_file_url(performer.photo) if performer.photo else None
 
     songs_list = []
@@ -97,26 +78,16 @@ async def get_performer(
     }
 
 
-# создать исполнителя (только админ)
-@router.post("/", status_code=status.HTTP_201_CREATED, dependencies=[Depends(current_admin())])
-async def create_performer(
-        performer_data: PerformerCreate,
-        session: SessionDep
-):
-    existing = await session.execute(
-        select(Performer).where(Performer.nickname == performer_data.nickname)
-    )
+@router.post("/", status_code=status.HTTP_201_CREATED, dependencies=[Depends(current_admin)])
+async def create_performer(performer_data: PerformerCreate, session: SessionDep):
+    existing = await session.execute(select(Performer).where(Performer.nickname == performer_data.nickname))
     if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Исполнитель с таким nickname уже существует"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Исполнитель с таким nickname уже существует")
 
     new_performer = Performer(
         nickname=performer_data.nickname,
         style_music=performer_data.style_music
     )
-
     session.add(new_performer)
     await session.commit()
     await session.refresh(new_performer)
@@ -133,36 +104,19 @@ async def create_performer(
     }
 
 
-# обновить исполнителя (только админ)
-@router.put("/{performer_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin())])
-async def update_performer(
-        performer_id: int,
-        performer_data: PerformerUpdate,
-        session: SessionDep
-):
-    result = await session.execute(
-        select(Performer).where(Performer.id == performer_id)
-    )
+@router.put("/{performer_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])
+async def update_performer(performer_id: int, performer_data: PerformerUpdate, session: SessionDep):
+    result = await session.execute(select(Performer).where(Performer.id == performer_id))
     performer = result.scalar_one_or_none()
-
     if not performer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Исполнитель не найден"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Исполнитель не найден")
 
     if performer_data.nickname is not None:
         existing = await session.execute(
-            select(Performer).where(
-                Performer.nickname == performer_data.nickname,
-                Performer.id != performer_id
-            )
+            select(Performer).where(Performer.nickname == performer_data.nickname, Performer.id != performer_id)
         )
         if existing.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Исполнитель с таким nickname уже существует"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Исполнитель с таким nickname уже существует")
         performer.nickname = performer_data.nickname
 
     if performer_data.style_music is not None:
@@ -186,23 +140,16 @@ async def update_performer(
     }
 
 
-# загрузить фото (только админ)
-@router.post("/{performer_id}/photo", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin())])
+@router.post("/{performer_id}/photo", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])
 async def upload_performer_photo(
         session: SessionDep,
         performer_id: int,
-        photo: UploadFile = File(...),
+        photo: UploadFile = File(...)
 ):
-    result = await session.execute(
-        select(Performer).where(Performer.id == performer_id)
-    )
+    result = await session.execute(select(Performer).where(Performer.id == performer_id))
     performer = result.scalar_one_or_none()
-
     if not performer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Исполнитель не найден"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Исполнитель не найден")
 
     allowed_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp']
     file_extension = photo.filename.split('.')[-1].lower() if photo.filename else ''
@@ -215,23 +162,13 @@ async def upload_performer_photo(
 
     content = await photo.read()
     if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Размер файла не должен превышать 5MB"
-        )
-
-    old_photo = performer.photo
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Размер файла не должен превышать 5MB")
 
     try:
         photo_path = await s3_storage.upload_performer_photo(photo, performer_id)
         performer.photo = photo_path
         await session.commit()
-
-        if old_photo:
-            await s3_storage.delete_file(old_photo)
-
         photo_url = await s3_storage.get_file_url(photo_path)
-
         return {
             "status": "success",
             "message": "Фото исполнителя успешно загружено",
@@ -239,87 +176,30 @@ async def upload_performer_photo(
         }
     except Exception as e:
         await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при загрузке фото: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка при загрузке фото: {str(e)}")
 
 
-# удалить фото (только админ)
-@router.delete("/{performer_id}/photo", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin())])
-async def delete_performer_photo(
-        performer_id: int,
-        session: SessionDep
-):
-    result = await session.execute(
-        select(Performer).where(Performer.id == performer_id)
-    )
+@router.delete("/{performer_id}/photo", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])
+async def delete_performer_photo(performer_id: int, session: SessionDep):
+    result = await session.execute(select(Performer).where(Performer.id == performer_id))
     performer = result.scalar_one_or_none()
-
     if not performer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Исполнитель не найден"
-        )
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Исполнитель не найден")
     if not performer.photo:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Фото не найдено"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фото не найдено")
 
-    try:
-        await s3_storage.delete_file(performer.photo)
-        performer.photo = None
-        await session.commit()
-
-        return {
-            "status": "success",
-            "message": "Фото исполнителя успешно удалено"
-        }
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при удалении фото: {str(e)}"
-        )
+    performer.photo = None
+    await session.commit()
+    return {"status": "success", "message": "Фото исполнителя удалено"}
 
 
-# DELETE /performers/{performer_id} - удалить исполнителя (только админ)
-@router.delete("/{performer_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin())])
-async def delete_performer(
-        performer_id: int,
-        session: SessionDep
-):
-    result = await session.execute(
-        select(Performer).where(Performer.id == performer_id)
-    )
+@router.delete("/{performer_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])
+async def delete_performer(performer_id: int, session: SessionDep):
+    result = await session.execute(select(Performer).where(Performer.id == performer_id))
     performer = result.scalar_one_or_none()
-
     if not performer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Исполнитель не найден"
-        )
-
-    if performer.photo:
-        await s3_storage.delete_file(performer.photo)
-
-    songs_result = await session.execute(
-        select(Song).where(Song.performer_id == performer_id)
-    )
-    songs = songs_result.scalars().all()
-
-    for song in songs:
-        if song.cover:
-            await s3_storage.delete_file(song.cover)
-        if song.audio_path:
-            await s3_storage.delete_file(song.audio_path)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Исполнитель не найден")
 
     await session.delete(performer)
     await session.commit()
-
-    return {
-        "status": "success",
-        "message": "Исполнитель и все его песни успешно удалены"
-    }
+    return {"status": "success", "message": "Исполнитель успешно удален"}

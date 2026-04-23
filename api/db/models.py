@@ -31,7 +31,7 @@ class User(Base):
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     subscription: Mapped[Subscription] = mapped_column(Enum(Subscription), nullable=False, default=Subscription.BASE)
-    role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.USER)
+    role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, default=Role.ADMIN)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # связи
