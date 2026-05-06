@@ -153,3 +153,20 @@ class Payment(Base):
 
     # связи
     user: Mapped["User"] = relationship("User", back_populates="payments")
+
+
+# Таблица лайков
+class Like(Base):
+    __tablename__ = "likes"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
+    song_id: Mapped[int] = mapped_column(ForeignKey('songs.id'), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+# Таблица истории прослушиваний
+class ListeningHistory(Base):
+    __tablename__ = "listening_history"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
+    song_id: Mapped[int] = mapped_column(ForeignKey('songs.id'), nullable=False, index=True)
+    listened_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
