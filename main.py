@@ -10,6 +10,10 @@ from api.user.routers import router as user_router
 from api.performer.routers import router as performer_router
 from api.song.routers import router as song_router
 from api.playlist.routers import router as playlist_router
+from api.likes.routers import router as likes_router
+from api.search.routers import router as search_router
+from api.history.routers import router as history_router
+from api.recommendations.routers import router as recommendations_router
 
 
 @asynccontextmanager
@@ -25,6 +29,10 @@ app.include_router(user_router)
 app.include_router(performer_router)
 app.include_router(song_router)
 app.include_router(playlist_router)
+app.include_router(likes_router)
+app.include_router(search_router)
+app.include_router(history_router)
+app.include_router(recommendations_router)
 
 app.add_middleware(
     CORSMiddleware,
