@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete  # ← delete импортирован явно
 from datetime import datetime, timedelta
 
 from api.db import SessionDep
@@ -83,12 +83,11 @@ async def add_to_history(
         )
     )
 
-    if recent.scalar_one_or_none():
+    recent_record = recent.scalar_one_or_none()
+    if recent_record:
         # Обновляем время последнего прослушивания
-        recent_record = recent.scalar_one_or_none()
-        if recent_record:
-            recent_record.listened_at = datetime.utcnow()
-            await session.commit()
+        recent_record.listened_at = datetime.utcnow()
+        await session.commit()
         return {"status": "success", "message": "Время прослушивания обновлено"}
 
     new_record = ListeningHistory(
@@ -131,11 +130,10 @@ async def clear_history(
     current_user: User = Depends(get_current_user)
 ):
     """Очистить всю историю прослушиваний"""
-
+    # ← ИСПРАВЛЕНО: используем delete() напрямую, а не select().delete()
     await session.execute(
-        select(ListeningHistory)
+        delete(ListeningHistory)
         .where(ListeningHistory.user_id == current_user.id)
-        .delete()
     )
     await session.commit()
 

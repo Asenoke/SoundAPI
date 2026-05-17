@@ -85,6 +85,8 @@ async def registration(
             "lastname": new_user.lastname,
             "email": new_user.email,
             "role": new_user.role.value,
+            "subscription": new_user.subscription.value,
+            "avatar_url": None,  # ← ДОБАВЛЕНО
         },
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -128,7 +130,6 @@ async def login(
     # Сохраняем refresh token в БД
     await save_refresh_token(session, user.id, refresh_token)
 
-
     return {
         "status": "success",
         "message": "Вход выполнен успешно",
@@ -138,8 +139,9 @@ async def login(
             "lastname": user.lastname,
             "email": user.email,
             "role": user.role.value,
+            "subscription": user.subscription.value,
             "avatar_path": user.avatar,
-            "avatar_url": "S3"
+            "avatar_url": None  # ← ИСПРАВЛЕНО: S3 загрузим позже
         },
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -150,30 +152,20 @@ async def login(
 @router.post("/refresh", status_code=status.HTTP_200_OK)
 async def refresh_token(
         session: SessionDep,
-        current_user: User = Depends(get_current_user)
+        refresh_token: str  # ← ИСПРАВЛЕНО: принимаем refresh_token напрямую
 ):
+    from api.utils.jwt_token import validate_refresh_token
 
-    # Ищем активный refresh token пользователя в БД
-    result = await session.execute(
-        select(RefreshToken).where(
-            RefreshToken.user_id == current_user.id,
-            RefreshToken.revoked == False,
-            RefreshToken.expires_at > datetime.utcnow()
-        )
-    )
-    refresh_token_obj = result.scalar_one_or_none()
-
-    if not refresh_token_obj:
+    # Валидируем refresh token
+    user_id = await validate_refresh_token(session, refresh_token)
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token не найден или истек"
         )
 
-    # Получаем строку токена
-    refresh_token_str = refresh_token_obj.token
-
     # Обновляем access token
-    new_access_token = await refresh_access_token(session, refresh_token_str)
+    new_access_token = await refresh_access_token(session, refresh_token)
 
     if not new_access_token:
         raise HTTPException(
@@ -197,9 +189,7 @@ async def logout(
     # Отзываем все refresh токены пользователя
     await revoke_all_user_tokens(session, current_user.id)
 
-
     return {
         "status": "success",
         "message": "Вы успешно вышли из системы"
     }
-

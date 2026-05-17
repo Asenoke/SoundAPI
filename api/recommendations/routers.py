@@ -78,6 +78,12 @@ async def get_recommendations(
                 )
                 performer = performer_result.scalar_one_or_none()
 
+                # Проверяем лайк ← ДОБАВЛЕНО
+                liked_result = await session.execute(
+                    select(Like).where(Like.user_id == current_user.id, Like.song_id == song.id)
+                )
+                is_liked = liked_result.scalar_one_or_none() is not None
+
                 recommended_songs.append({
                     "id": song.id,
                     "name": song.name,
@@ -87,7 +93,8 @@ async def get_recommendations(
                     "audio_url": audio_url,
                     "duration": song.duration,
                     "auditions": song.auditions,
-                    "reason": f"Похоже на то, что вы слушаете"
+                    "is_liked": is_liked,  # ← ДОБАВЛЕНО
+                    "reason": "Похоже на то, что вы слушаете"
                 })
 
     # Если мало рекомендаций — добавляем популярные
@@ -111,6 +118,12 @@ async def get_recommendations(
             )
             performer = performer_result.scalar_one_or_none()
 
+            # Проверяем лайк ← ДОБАВЛЕНО
+            liked_result = await session.execute(
+                select(Like).where(Like.user_id == current_user.id, Like.song_id == song.id)
+            )
+            is_liked = liked_result.scalar_one_or_none() is not None
+
             recommended_songs.append({
                 "id": song.id,
                 "name": song.name,
@@ -120,6 +133,7 @@ async def get_recommendations(
                 "audio_url": audio_url,
                 "duration": song.duration,
                 "auditions": song.auditions,
+                "is_liked": is_liked,  # ← ДОБАВЛЕНО
                 "reason": "Популярное"
             })
 

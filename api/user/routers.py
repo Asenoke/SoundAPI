@@ -1,15 +1,45 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Query
 from sqlalchemy import select
 
 from api.db import SessionDep
 from api.db.models import User
 from api.dependencies.current_user import get_current_user
+from api.dependencies.current_admin import current_admin
 from api.auth.models import UserEdit
 from api.utils.hash_password import hash_password, verify_password
 from api.utils.jwt_token import revoke_all_user_tokens
 from api.storage.s3_storage import s3_storage
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
+
+
+@router.get("/", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])  # ← ДОБАВЛЕНО
+async def get_all_users(
+    session: SessionDep,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100)
+):
+    """Получить список всех пользователей (только для админов)"""
+    result = await session.execute(select(User).offset(skip).limit(limit))
+    users = result.scalars().all()
+
+    users_list = []
+    for user in users:
+        avatar_url = await s3_storage.get_file_url(user.avatar) if user.avatar else None
+        users_list.append({
+            "id": user.id,
+            "firstname": user.firstname,
+            "lastname": user.lastname,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "age": user.age,
+            "role": user.role.value,
+            "subscription": user.subscription.value,
+            "avatar_url": avatar_url,
+            "created_at": user.created_at
+        })
+
+    return {"status": "success", "data": users_list}
 
 
 @router.get("/profile", status_code=status.HTTP_200_OK)
@@ -83,6 +113,70 @@ async def update_profile(
             "phone_number": current_user.phone_number,
             "age": current_user.age,
             "role": current_user.role.value,
+            "subscription": current_user.subscription.value,
+            "avatar_url": avatar_url
+        }
+    }
+
+
+@router.put("/{user_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(current_admin)])  # ← ДОБАВЛЕНО
+async def update_user_by_id(
+    user_id: int,
+    session: SessionDep,
+    user_data: UserEdit,
+):
+    """Обновить пользователя по ID (только для админов)"""
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+
+    if user_data.firstname is not None:
+        user.firstname = user_data.firstname
+
+    if user_data.lastname is not None:
+        user.lastname = user_data.lastname
+
+    if user_data.age is not None:
+        user.age = user_data.age
+
+    if user_data.email is not None:
+        existing = await session.execute(
+            select(User).where(User.email == user_data.email, User.id != user_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email уже используется")
+        user.email = user_data.email
+
+    if user_data.phone_number is not None:
+        existing = await session.execute(
+            select(User).where(User.phone_number == user_data.phone_number, User.id != user_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Номер телефона уже используется")
+        user.phone_number = user_data.phone_number
+
+    if user_data.password is not None:
+        user.password = hash_password(user_data.password)
+        await revoke_all_user_tokens(session, user_id)
+
+    await session.commit()
+    await session.refresh(user)
+
+    avatar_url = await s3_storage.get_file_url(user.avatar) if user.avatar else None
+
+    return {
+        "status": "success",
+        "message": "Пользователь успешно обновлен",
+        "user": {
+            "id": user.id,
+            "firstname": user.firstname,
+            "lastname": user.lastname,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "age": user.age,
+            "role": user.role.value,
+            "subscription": user.subscription.value,
             "avatar_url": avatar_url
         }
     }
@@ -158,8 +252,8 @@ async def upload_avatar(
     old_avatar = current_user.avatar
 
     try:
-        # Загружаем новый аватар
-        avatar_path = await s3_storage.upload_user_avatar(avatar, current_user.id, content)
+        # Загружаем новый аватар — передаём content чтобы избежать повторного чтения ← ИСПРАВЛЕНО
+        avatar_path = await s3_storage.upload_user_avatar(avatar, current_user.id, content=content)
         current_user.avatar = avatar_path
         await session.commit()
 
@@ -179,7 +273,6 @@ async def upload_avatar(
         await session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Ошибка при загрузке аватара: {str(e)}")
-
 
 
 @router.get("/avatar", status_code=status.HTTP_200_OK)

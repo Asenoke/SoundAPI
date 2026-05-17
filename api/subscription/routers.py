@@ -3,7 +3,7 @@ from sqlalchemy import select
 from datetime import datetime, timedelta
 
 from api.db import SessionDep
-from api.db.models import User, Buy, Subscription
+from api.db.models import User, Buy, Subscription  # ← Subscription добавлен в импорт
 from api.dependencies.current_user import get_current_user
 
 router = APIRouter(prefix="/api/subscription", tags=["Subscription"])
@@ -87,13 +87,14 @@ async def cancel_subscription(
         )
 
     # Отключаем активные покупки
+    from sqlalchemy import update
     await session.execute(
-        select(Buy)
+        update(Buy)
         .where(
             Buy.user_id == current_user.id,
             Buy.status == True
         )
-        .update({"status": False})
+        .values(status=False)
     )
 
     # Возвращаем базовую подписку

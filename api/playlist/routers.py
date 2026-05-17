@@ -219,12 +219,15 @@ async def upload_playlist_cover(
             detail=f"Неподдерживаемый формат. Разрешены: {', '.join(allowed_formats)}"
         )
 
+    # Читаем контент ЗДЕСЬ и передаём в s3_storage ← ИСПРАВЛЕНО
     content = await cover.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл пустой")
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Размер файла не должен превышать 5MB")
 
     try:
-        cover_path = await s3_storage.upload_playlist_cover(cover, playlist_id, playlist.name)
+        cover_path = await s3_storage.upload_playlist_cover(cover, playlist_id, playlist.name, content=content)
         playlist.cover = cover_path
         await session.commit()
         cover_url = await s3_storage.get_file_url(cover_path)

@@ -32,6 +32,7 @@ async def get_performers(
             "id": performer.id,
             "nickname": performer.nickname,
             "style_music": performer.style_music,
+            "bio": performer.bio,  # ← ДОБАВЛЕНО
             "photo_url": photo_url,
             "created_at": performer.created_at
         })
@@ -58,6 +59,8 @@ async def get_performer(performer_id: int, session: SessionDep):
             "id": song.id,
             "name": song.name,
             "style_music": song.style_music,
+            "album": song.album,  # ← ДОБАВЛЕНО
+            "genre": song.genre,  # ← ДОБАВЛЕНО
             "cover_url": cover_url,
             "audio_url": audio_url,
             "auditions": song.auditions,
@@ -71,6 +74,7 @@ async def get_performer(performer_id: int, session: SessionDep):
             "id": performer.id,
             "nickname": performer.nickname,
             "style_music": performer.style_music,
+            "bio": performer.bio,  # ← ДОБАВЛЕНО
             "photo_url": photo_url,
             "created_at": performer.created_at,
             "songs": songs_list
@@ -86,7 +90,8 @@ async def create_performer(performer_data: PerformerCreate, session: SessionDep)
 
     new_performer = Performer(
         nickname=performer_data.nickname,
-        style_music=performer_data.style_music
+        style_music=performer_data.style_music,
+        bio=performer_data.bio  # ← ДОБАВЛЕНО
     )
     session.add(new_performer)
     await session.commit()
@@ -99,6 +104,7 @@ async def create_performer(performer_data: PerformerCreate, session: SessionDep)
             "id": new_performer.id,
             "nickname": new_performer.nickname,
             "style_music": new_performer.style_music,
+            "bio": new_performer.bio,  # ← ДОБАВЛЕНО
             "created_at": new_performer.created_at
         }
     }
@@ -122,6 +128,9 @@ async def update_performer(performer_id: int, performer_data: PerformerUpdate, s
     if performer_data.style_music is not None:
         performer.style_music = performer_data.style_music
 
+    if performer_data.bio is not None:  # ← ДОБАВЛЕНО
+        performer.bio = performer_data.bio
+
     await session.commit()
     await session.refresh(performer)
 
@@ -134,6 +143,7 @@ async def update_performer(performer_id: int, performer_data: PerformerUpdate, s
             "id": performer.id,
             "nickname": performer.nickname,
             "style_music": performer.style_music,
+            "bio": performer.bio,  # ← ДОБАВЛЕНО
             "photo_url": photo_url,
             "created_at": performer.created_at
         }
@@ -160,12 +170,15 @@ async def upload_performer_photo(
             detail=f"Неподдерживаемый формат. Разрешены: {', '.join(allowed_formats)}"
         )
 
+    # Читаем контент ЗДЕСЬ и передаём в s3_storage ← ИСПРАВЛЕНО
     content = await photo.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл пустой")
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Размер файла не должен превышать 5MB")
 
     try:
-        photo_path = await s3_storage.upload_performer_photo(photo, performer_id)
+        photo_path = await s3_storage.upload_performer_photo(photo, performer_id, content=content)
         performer.photo = photo_path
         await session.commit()
         photo_url = await s3_storage.get_file_url(photo_path)

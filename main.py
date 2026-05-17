@@ -14,6 +14,7 @@ from api.likes.routers import router as likes_router
 from api.search.routers import router as search_router
 from api.history.routers import router as history_router
 from api.recommendations.routers import router as recommendations_router
+from api.subscription.routers import router as subscription_router
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.include_router(likes_router)
 app.include_router(search_router)
 app.include_router(history_router)
 app.include_router(recommendations_router)
+app.include_router(subscription_router)
 
 app.add_middleware(
     CORSMiddleware,
